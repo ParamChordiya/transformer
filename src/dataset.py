@@ -19,7 +19,8 @@ def download_wikitext2(data_dir: str) -> dict[str, str]:
 
     if not os.path.exists(zip_path):
         print("Downloading WikiText-2...")
-        urllib.request.urlretrieve(_WIKITEXT2_URL, zip_path)
+        with urllib.request.urlopen(_WIKITEXT2_URL) as resp, open(zip_path, "wb") as f:
+            f.write(resp.read())
 
     # Extract once if any split file is missing
     if any(not os.path.exists(os.path.join(data_dir, p)) for p in _WIKITEXT2_SPLITS.values()):
