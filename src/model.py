@@ -96,10 +96,10 @@ class TransformerBlock(nn.Module):
       output: (B, T, d_model)
     """
 
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.1):
+    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.1, context_length: int = 1024):
         super().__init__()
         self.ln1 = nn.LayerNorm(d_model)
-        self.attn = Attention(d_model, n_heads, dropout)
+        self.attn = Attention(d_model, n_heads, dropout, context_length)
         self.ln2 = nn.LayerNorm(d_model)
         self.ffn = FeedForward(d_model, d_ff, dropout)
 

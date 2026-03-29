@@ -58,14 +58,17 @@ def test_transformer_block_output_shape():
     assert out.shape == (2, 8, 64)
 
 def test_transformer_block_residual():
-    """With zero-initialized weights the block should return something close to its input."""
+    """Residual connections: if sublayer output is zero, block should return input unchanged."""
+    torch.manual_seed(0)
     block = TransformerBlock(d_model=64, n_heads=4, d_ff=256, dropout=0.0)
-    # Zero out all weight matrices so the block effectively adds zero
-    for name, p in block.named_parameters():
-        if "weight" in name and p.dim() >= 2:
-            torch.nn.init.zeros_(p)
+    # Zero ALL parameters so both sublayers produce zero vectors
+    with torch.no_grad():
+        for p in block.parameters():
+            p.zero_()
     block.eval()
     x = torch.randn(1, 4, 64)
     out = block(x)
-    # Output should equal input when all projections are zero
-    assert out.shape == x.shape
+    # With all weights and biases zero, sublayer outputs are zero → x + 0 = x
+    assert torch.allclose(out, x, atol=1e-5), (
+        f"Residual connection broken: max diff = {(out - x).abs().max().item()}"
+    )
