@@ -1,6 +1,4 @@
 import os
-import tempfile
-import zipfile as zf
 import torch
 from src.dataset import TokenDataset, make_dataloader, show_batch, download_wikitext2
 from src.tokenizer import Tokenizer
@@ -51,21 +49,12 @@ def test_show_batch_runs(capsys):
 
 
 def test_download_wikitext2_cache_hit(tmp_path):
-    """When extracted files already exist, download_wikitext2 returns correct paths without re-downloading."""
-    # Create the zip (simulating an already-downloaded zip)
-    zip_path = tmp_path / "wikitext-2-raw-v1.zip"
-    with zf.ZipFile(zip_path, "w") as z:
-        z.writestr("wikitext-2-raw/wiki.train.raw", "fake train text")
-        z.writestr("wikitext-2-raw/wiki.valid.raw", "fake valid text")
-        z.writestr("wikitext-2-raw/wiki.test.raw", "fake test text")
+    """When cached .txt files already exist, download_wikitext2 returns correct paths without re-downloading."""
+    # Pre-create the cached text files (simulating already-downloaded state)
+    for split in ["train", "valid", "test"]:
+        (tmp_path / f"{split}.txt").write_text("fake text")
 
-    # Pre-create the extracted files (simulating already-extracted state)
-    raw_dir = tmp_path / "wikitext-2-raw"
-    raw_dir.mkdir()
-    for name in ["wiki.train.raw", "wiki.valid.raw", "wiki.test.raw"]:
-        (raw_dir / name).write_text("fake text")
-
-    # Call the function — should not raise, should return correct paths
+    # Call the function — should not call HuggingFace, should return correct paths
     paths = download_wikitext2(str(tmp_path))
 
     assert set(paths.keys()) == {"train", "valid", "test"}

@@ -1,33 +1,24 @@
 import os
-import urllib.request
-import zipfile
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-_WIKITEXT2_URL = "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip"
-_WIKITEXT2_SPLITS = {
-    "train": "wikitext-2-raw/wiki.train.raw",
-    "valid": "wikitext-2-raw/wiki.valid.raw",
-    "test":  "wikitext-2-raw/wiki.test.raw",
-}
+_HF_SPLITS = {"train": "train", "valid": "validation", "test": "test"}
 
 
 def download_wikitext2(data_dir: str) -> dict[str, str]:
-    """Download and extract WikiText-2 raw text. Returns paths keyed by split name."""
+    """Download WikiText-2 via HuggingFace datasets and cache as plain text files."""
+    from datasets import load_dataset  # lazy import — only needed once
+
     os.makedirs(data_dir, exist_ok=True)
-    zip_path = os.path.join(data_dir, "wikitext-2-raw-v1.zip")
-
-    if not os.path.exists(zip_path):
-        print("Downloading WikiText-2...")
-        with urllib.request.urlopen(_WIKITEXT2_URL) as resp, open(zip_path, "wb") as f:
-            f.write(resp.read())
-
-    # Extract once if any split file is missing
-    if any(not os.path.exists(os.path.join(data_dir, p)) for p in _WIKITEXT2_SPLITS.values()):
-        with zipfile.ZipFile(zip_path, "r") as z:
-            z.extractall(data_dir)
-
-    paths = {split: os.path.join(data_dir, rel_path) for split, rel_path in _WIKITEXT2_SPLITS.items()}
+    paths = {}
+    for split, hf_split in _HF_SPLITS.items():
+        cache_path = os.path.join(data_dir, f"{split}.txt")
+        if not os.path.exists(cache_path):
+            print(f"Downloading WikiText-2 ({split})...")
+            ds = load_dataset("wikitext", "wikitext-2-raw-v1", split=hf_split)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(ds["text"]))
+        paths[split] = cache_path
     return paths
 
 
