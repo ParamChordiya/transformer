@@ -57,3 +57,53 @@ class Attention(nn.Module):
         out = attn @ v                              # (B, n_heads, T, d_head)
         out = out.transpose(1, 2).contiguous().view(B, T, C)
         return self.proj(out)
+
+
+class FeedForward(nn.Module):
+    """
+    Position-wise feed-forward network.
+
+    Applied independently to each token. Expands to d_ff then projects back to d_model.
+    GELU activation is used (smoother than ReLU, standard in modern transformers).
+
+    Shape flow:
+      input:  (B, T, d_model)
+      output: (B, T, d_model)
+    """
+
+    def __init__(self, d_model: int, d_ff: int, dropout: float = 0.1):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, d_model),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+class TransformerBlock(nn.Module):
+    """
+    One transformer layer: pre-norm attention + pre-norm FFN, both with residual connections.
+
+    Pre-norm means LayerNorm is applied BEFORE the sub-layer (not after).
+    This is the modern convention (used by GPT-2 onward) and trains more stably.
+
+    Shape flow:
+      input:  (B, T, d_model)
+      output: (B, T, d_model)
+    """
+
+    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.1):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(d_model)
+        self.attn = Attention(d_model, n_heads, dropout)
+        self.ln2 = nn.LayerNorm(d_model)
+        self.ffn = FeedForward(d_model, d_ff, dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.attn(self.ln1(x))   # attention sub-layer with residual
+        x = x + self.ffn(self.ln2(x))    # FFN sub-layer with residual
+        return x
