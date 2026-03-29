@@ -1,6 +1,7 @@
 import torch
 import pytest
-from src.model import Attention, FeedForward, TransformerBlock
+from src.model import Attention, FeedForward, TransformerBlock, GPT
+from config import Config
 
 def test_attention_output_shape():
     attn = Attention(d_model=64, n_heads=4)
@@ -72,3 +73,31 @@ def test_transformer_block_residual():
     assert torch.allclose(out, x, atol=1e-5), (
         f"Residual connection broken: max diff = {(out - x).abs().max().item()}"
     )
+
+def test_gpt_output_shape():
+    cfg = Config(vocab_size=100, context_length=16, d_model=64, n_heads=4, n_layers=2, d_ff=256)
+    model = GPT(cfg)
+    idx = torch.randint(0, 100, (2, 16))   # (batch=2, seq=16)
+    logits = model(idx)
+    assert logits.shape == (2, 16, 100)    # (batch, seq, vocab_size)
+
+def test_gpt_num_params_positive():
+    cfg = Config(vocab_size=100, context_length=16, d_model=64, n_heads=4, n_layers=2, d_ff=256)
+    model = GPT(cfg)
+    assert model.num_params() > 0
+
+def test_gpt_context_length_stored():
+    cfg = Config(vocab_size=100, context_length=32, d_model=64, n_heads=4, n_layers=2, d_ff=256)
+    model = GPT(cfg)
+    assert model.context_length == 32
+
+def test_gpt_logits_vary_by_position():
+    """Different positions should produce different logits — model is not position-agnostic."""
+    torch.manual_seed(1)
+    cfg = Config(vocab_size=100, context_length=16, d_model=64, n_heads=4, n_layers=2, d_ff=256)
+    model = GPT(cfg)
+    model.eval()
+    idx = torch.randint(0, 100, (1, 8))
+    logits = model(idx)
+    # Logits at position 0 and position 7 should differ
+    assert not torch.allclose(logits[0, 0], logits[0, 7])

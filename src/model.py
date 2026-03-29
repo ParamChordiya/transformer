@@ -107,3 +107,46 @@ class TransformerBlock(nn.Module):
         x = x + self.attn(self.ln1(x))   # attention sub-layer with residual
         x = x + self.ffn(self.ln2(x))    # FFN sub-layer with residual
         return x
+
+
+class GPT(nn.Module):
+    """
+    Decoder-only transformer (GPT architecture).
+
+    Embeds token IDs + learned positional embeddings, passes through N transformer
+    blocks, applies a final layer norm, then projects to logits over the vocabulary.
+
+    Shape flow:
+      input:  (B, T)            — token IDs, T <= context_length
+      output: (B, T, vocab_size) — logits (unnormalized log-probs) for each position
+    """
+
+    def __init__(self, config):
+        super().__init__()
+        self.context_length = config.context_length
+
+        self.token_emb = nn.Embedding(config.vocab_size, config.d_model)
+        self.pos_emb = nn.Embedding(config.context_length, config.d_model)
+        self.dropout = nn.Dropout(config.dropout)
+        self.blocks = nn.ModuleList([
+            TransformerBlock(config.d_model, config.n_heads, config.d_ff, config.dropout, config.context_length)
+            for _ in range(config.n_layers)
+        ])
+        self.ln_f = nn.LayerNorm(config.d_model)
+        self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        B, T = idx.shape
+        assert T <= self.context_length, f"Sequence length {T} exceeds context_length {self.context_length}"
+
+        positions = torch.arange(T, device=idx.device)             # (T,)
+        x = self.dropout(self.token_emb(idx) + self.pos_emb(positions))  # (B, T, d_model)
+
+        for block in self.blocks:
+            x = block(x)
+
+        x = self.ln_f(x)
+        return self.head(x)   # (B, T, vocab_size)
+
+    def num_params(self) -> int:
+        return sum(p.numel() for p in self.parameters())
