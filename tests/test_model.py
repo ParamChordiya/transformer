@@ -10,24 +10,26 @@ def test_attention_output_shape():
 
 def test_attention_causal_mask():
     """
-    Changing a future token must not affect earlier positions' output.
-    This verifies the causal mask is working.
+    No position i should be affected by changes to any position j > i.
+    This verifies the causal mask blocks all future information.
     """
     torch.manual_seed(0)
     attn = Attention(d_model=64, n_heads=4, dropout=0.0)
     attn.eval()
 
     x = torch.randn(1, 6, 64)
-    x2 = x.clone()
-    x2[0, -1, :] = torch.randn(64)   # modify only the last token
 
-    out1 = attn(x)
-    out2 = attn(x2)
+    for pos in range(5):  # modify each position in turn, check earlier ones are unaffected
+        x2 = x.clone()
+        x2[0, pos + 1, :] = torch.randn(64)  # modify position pos+1
 
-    # Position 0 should see identical outputs — it cannot attend to position 5
-    assert torch.allclose(out1[0, 0], out2[0, 0], atol=1e-5), (
-        "First token output changed when last token was modified — causal mask broken!"
-    )
+        out1 = attn(x)
+        out2 = attn(x2)
+
+        for i in range(pos + 1):  # positions 0..pos must be unchanged
+            assert torch.allclose(out1[0, i], out2[0, i], atol=1e-5), (
+                f"Position {i} output changed when position {pos+1} was modified — causal mask broken!"
+            )
 
 def test_attention_n_heads_must_divide_d_model():
     with pytest.raises(AssertionError):

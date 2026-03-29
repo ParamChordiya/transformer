@@ -15,7 +15,7 @@ class Attention(nn.Module):
       output: (B, T, d_model)
     """
 
-    def __init__(self, d_model: int, n_heads: int, dropout: float = 0.1):
+    def __init__(self, d_model: int, n_heads: int, dropout: float = 0.1, context_length: int = 1024):
         super().__init__()
         assert d_model % n_heads == 0, f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
         self.n_heads = n_heads
@@ -25,6 +25,12 @@ class Attention(nn.Module):
         self.qkv = nn.Linear(d_model, 3 * d_model, bias=False)
         self.proj = nn.Linear(d_model, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
+
+        # Pre-allocate causal mask as a buffer so it moves to GPU with the module
+        self.register_buffer(
+            "causal_mask",
+            torch.triu(torch.ones(context_length, context_length), diagonal=1).bool(),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.shape  # batch, sequence length, d_model
@@ -43,8 +49,7 @@ class Attention(nn.Module):
         attn = (q @ k.transpose(-2, -1)) / scale   # (B, n_heads, T, T)
 
         # Causal mask: positions can only attend to positions <= themselves
-        mask = torch.triu(torch.ones(T, T, device=x.device), diagonal=1).bool()
-        attn = attn.masked_fill(mask, float("-inf"))
+        attn = attn.masked_fill(self.causal_mask[:T, :T], float("-inf"))
         attn = torch.softmax(attn, dim=-1)
         attn = self.dropout(attn)
 
