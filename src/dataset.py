@@ -21,14 +21,12 @@ def download_wikitext2(data_dir: str) -> dict[str, str]:
         print("Downloading WikiText-2...")
         urllib.request.urlretrieve(_WIKITEXT2_URL, zip_path)
 
-    paths = {}
-    for split, rel_path in _WIKITEXT2_SPLITS.items():
-        full_path = os.path.join(data_dir, rel_path)
-        if not os.path.exists(full_path):
-            with zipfile.ZipFile(zip_path, "r") as z:
-                z.extractall(data_dir)
-        paths[split] = full_path
+    # Extract once if any split file is missing
+    if any(not os.path.exists(os.path.join(data_dir, p)) for p in _WIKITEXT2_SPLITS.values()):
+        with zipfile.ZipFile(zip_path, "r") as z:
+            z.extractall(data_dir)
 
+    paths = {split: os.path.join(data_dir, rel_path) for split, rel_path in _WIKITEXT2_SPLITS.items()}
     return paths
 
 
