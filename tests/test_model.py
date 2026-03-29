@@ -81,10 +81,11 @@ def test_gpt_output_shape():
     logits = model(idx)
     assert logits.shape == (2, 16, 100)    # (batch, seq, vocab_size)
 
-def test_gpt_num_params_positive():
+def test_gpt_num_params():
     cfg = Config(vocab_size=100, context_length=16, d_model=64, n_heads=4, n_layers=2, d_ff=256)
     model = GPT(cfg)
-    assert model.num_params() > 0
+    # Computed: token_emb(6400) + pos_emb(1024) + 2 blocks(49728 each) + ln_f(128) + head(6400) = 113408
+    assert model.num_params() == 113408
 
 def test_gpt_context_length_stored():
     cfg = Config(vocab_size=100, context_length=32, d_model=64, n_heads=4, n_layers=2, d_ff=256)
