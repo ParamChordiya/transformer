@@ -23,5 +23,5 @@ def test_subword_tokenization():
     """'transformer' should split into multiple tokens, showing BPE in action."""
     tok = Tokenizer()
     tokens = tok.encode("transformer")
-    assert len(tokens) >= 1   # may be 1 or more depending on BPE
+    assert len(tokens) > 1   # "transformer" splits into 2 BPE tokens
     assert all(0 <= t < tok.vocab_size for t in tokens)
