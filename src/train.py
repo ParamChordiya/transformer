@@ -9,6 +9,15 @@ from src.tokenizer import Tokenizer
 from src.dataset import download_wikitext2, make_dataloader
 
 
+def get_device() -> str:
+    """Return the best available device: CUDA > MPS (Apple Silicon) > CPU."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def cosine_lr(
     step: int,
     warmup_steps: int,
@@ -45,7 +54,7 @@ def train(cfg: Config, tokens_override: dict | None = None) -> list[float]:
     tokens_override: if provided, use these token lists instead of downloading WikiText-2.
     Returns list of training losses (one per eval_interval).
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = get_device()
 
     if tokens_override is not None:
         train_tokens = tokens_override["train"]

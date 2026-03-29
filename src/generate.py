@@ -1,6 +1,7 @@
 import torch
 from src.model import GPT
 from src.tokenizer import Tokenizer
+from src.train import get_device
 
 
 def generate(
@@ -9,7 +10,7 @@ def generate(
     prompt: str,
     max_new_tokens: int = 100,
     temperature: float = 1.0,
-    device: str = "cpu",
+    device: str | None = None,
 ) -> str:
     """
     Autoregressively sample tokens from the model.
@@ -19,7 +20,10 @@ def generate(
       - < 1.0 → sharper, more predictable (→ 0 becomes greedy/argmax)
       - > 1.0 → flatter, more random
     """
+    if device is None:
+        device = get_device()
     model.eval()
+    model.to(device)
     tokens = tokenizer.encode(prompt)
     x = torch.tensor(tokens, dtype=torch.long, device=device).unsqueeze(0)  # (1, T)
 
@@ -36,8 +40,10 @@ def generate(
     return tokenizer.decode(x[0].tolist())
 
 
-def load_from_checkpoint(path: str, device: str = "cpu") -> GPT:
+def load_from_checkpoint(path: str, device: str | None = None) -> GPT:
     """Load a GPT model from a checkpoint saved by src/train.py."""
+    if device is None:
+        device = get_device()
     checkpoint = torch.load(path, map_location=device, weights_only=False)
     cfg = checkpoint["config"]
     model = GPT(cfg)
